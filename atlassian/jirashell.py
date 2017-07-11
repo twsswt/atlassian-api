@@ -15,8 +15,8 @@ from six.moves.urllib.parse import parse_qsl
 
 import argparse
 from getpass import getpass
-from jira import __version__
-from jira import JIRA
+from atlassian import __version__
+from atlassian import JIRA
 from oauthlib.oauth1 import SIGNATURE_RSA
 import os
 import requests
@@ -26,7 +26,7 @@ from sys import exit
 import webbrowser
 
 CONFIG_PATH = os.path.join(
-    os.path.expanduser('~'), '.jira-python', 'jirashell.ini')
+    os.path.expanduser('~'), '.atlassian-python', 'jirashell.ini')
 
 
 def oauth_dance(server, consumer_key, key_cert_data, print_tokens=False, verify=None):
@@ -253,7 +253,7 @@ def main():
 
     ipshell = InteractiveShellEmbed(
         banner1='<JIRA Shell ' + __version__ + ' (' + jira.client_info() + ')>')
-    ipshell("*** JIRA shell active; client is in 'jira'."
+    ipshell("*** JIRA shell active; client is in 'atlassian'."
             ' Press Ctrl-D to exit.')
 
 

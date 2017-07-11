@@ -49,9 +49,9 @@ cmd_folder = os.path.abspath(os.path.join(os.path.split(inspect.getfile(
 if cmd_folder not in sys.path:
     sys.path.insert(0, cmd_folder)
 
-import jira  # noqa
-from jira import Role, Issue, JIRA, JIRAError, Project  # noqa
-from jira.resources import Resource, cls_for_resource   # noqa
+import atlassian  # noqa
+from atlassian import Role, Issue, JIRA, AtlassianError, Project  # noqa
+from atlassian.resources import Resource, cls_for_resource   # noqa
 
 TEST_ROOT = os.path.dirname(__file__)
 TEST_ICON_PATH = os.path.join(TEST_ROOT, 'icon.png')
@@ -100,7 +100,7 @@ def get_unique_project_name():
 
     if user == 'TRAVIS' and 'TRAVIS_JOB_NUMBER' in os.environ:
         # please note that user underline (_) is not suppored by
-        # jira even if is documented as supported.
+        # atlassian even if is documented as supported.
         jid = 'T' + hashify(user + os.environ['TRAVIS_JOB_NUMBER'])
     else:
         identifier = user + \
@@ -241,7 +241,7 @@ class JiraTestManager(object):
 
                 # now we need some data to start with for the tests
 
-                # jira project key is max 10 chars, no letter.
+                # atlassian project key is max 10 chars, no letter.
                 # [0] always "Z"
                 # [1-6] username running the tests (hope we will not collide)
                 # [7-8] python version A=0, B=1,..
@@ -405,7 +405,7 @@ class UniversalResourceTests(unittest.TestCase):
         self.assertEqual(resource.key, issue.key)
 
     def test_find_invalid_resource_raises_exception(self):
-        with self.assertRaises(JIRAError) as cm:
+        with self.assertRaises(AtlassianError) as cm:
             self.jira.find('woopsydoodle/{0}', '666')
 
         ex = cm.exception
@@ -433,13 +433,13 @@ class ResourceTests(unittest.TestCase):
         pass
 
     def test_cls_for_resource(self):
-        self.assertEqual(cls_for_resource('https://jira.atlassian.com/rest/\
+        self.assertEqual(cls_for_resource('https://atlassian.atlassian.com/rest/\
                 api/latest/issue/JRA-1330'), Issue)
-        self.assertEqual(cls_for_resource('http://localhost:2990/jira/rest/\
+        self.assertEqual(cls_for_resource('http://localhost:2990/atlassian/rest/\
                 api/latest/project/BULK'), Project)
-        self.assertEqual(cls_for_resource('http://imaginary-jira.com/rest/\
+        self.assertEqual(cls_for_resource('http://imaginary-atlassian.com/rest/\
                 api/latest/project/IMG/role/10002'), Role)
-        self.assertEqual(cls_for_resource('http://customized-jira.com/rest/\
+        self.assertEqual(cls_for_resource('http://customized-atlassian.com/rest/\
                 plugin-resource/4.5/json/getMyObject'), Resource)
 
 
@@ -457,13 +457,13 @@ class ApplicationPropertiesTests(unittest.TestCase):
 
     def test_application_property(self):
         clone_prefix = self.jira.application_properties(
-            key='jira.lf.text.headingcolour')
+            key='atlassian.lf.text.headingcolour')
         self.assertEqual(clone_prefix['value'], '#292929')
 
     @pytest.mark.skipif(_non_parallel, reason="avoid concurrency conflict")
     def test_set_application_property(self):
-        prop = 'jira.lf.favicon.hires.url'
-        valid_value = '/jira-favicon-hires.png'
+        prop = 'atlassian.lf.favicon.hires.url'
+        valid_value = '/atlassian-favicon-hires.png'
         invalid_value = '/Tjira-favicon-hires.png'
 
         self.jira.set_application_property(prop, invalid_value)
@@ -475,7 +475,7 @@ class ApplicationPropertiesTests(unittest.TestCase):
 
     def test_setting_bad_property_raises(self):
         prop = 'random.nonexistent.property'
-        self.assertRaises(JIRAError, self.jira.set_application_property, prop,
+        self.assertRaises(AtlassianError, self.jira.set_application_property, prop,
                           '666')
 
 
@@ -533,13 +533,13 @@ class ComponentTests(unittest.TestCase):
 
     # Components field can't be modified from issue.update
     #    def test_component_count_related_issues(self):
-    #        component = self.jira.create_component('PROJECT_B_TEST',self.project_b, description='test!!',
+    #        component = self.atlassian.create_component('PROJECT_B_TEST',self.project_b, description='test!!',
     #                                               assigneeType='COMPONENT_LEAD', isAssigneeTypeValid=False)
-    #        issue1 = self.jira.issue(self.issue_1)
-    #        issue2 = self.jira.issue(self.issue_2)
+    #        issue1 = self.atlassian.issue(self.issue_1)
+    #        issue2 = self.atlassian.issue(self.issue_2)
     #        (issue1.update ({'components': ['PROJECT_B_TEST']}))
     #        (issue2.update (components = ['PROJECT_B_TEST']))
-    #        issue_count = self.jira.component_count_related_issues(component.id)
+    #        issue_count = self.atlassian.component_count_related_issues(component.id)
     #        self.assertEqual(issue_count, 2)
     #        component.delete()
 
@@ -573,7 +573,7 @@ class ComponentTests(unittest.TestCase):
                                                self.project_b, description='not long for this world')
         myid = component.id
         component.delete()
-        self.assertRaises(JIRAError, self.jira.component, myid)
+        self.assertRaises(AtlassianError, self.jira.component, myid)
 
 
 @flaky
@@ -651,7 +651,7 @@ class FilterTests(unittest.TestCase):
         myfilter.delete()
 
     def test_favourite_filters(self):
-        # filters = self.jira.favourite_filters()
+        # filters = self.atlassian.favourite_filters()
         jql = "project = %s and component is not empty" % self.project_b
         name = "filter-to-fav-" + rndstr()
         myfilter = self.jira.create_filter(name=name,
@@ -676,7 +676,7 @@ class GroupsTest(unittest.TestCase):
         self.assertGreater(len(groups), 0)
 
     def test_groups_for_users(self):
-        groups = self.jira.groups('jira-users')
+        groups = self.jira.groups('atlassian-users')
         self.assertGreater(len(groups), 0)
 
 
@@ -699,7 +699,7 @@ class IssueTests(unittest.TestCase):
         self.assertEqual(issue.fields.summary,
                          'issue 1 from %s' % self.project_b)
 
-    @unittest.skip("disabled as it seems to be ignored by jira, returning all")
+    @unittest.skip("disabled as it seems to be ignored by atlassian, returning all")
     def test_issue_field_limiting(self):
         issue = self.jira.issue(self.issue_2, fields='summary,comment')
         self.assertEqual(issue.fields.summary,
@@ -948,7 +948,7 @@ class IssueTests(unittest.TestCase):
         fields = {
             'labels': issue.fields.labels}
 
-        self.assertRaises(JIRAError, issue.update, fields=fields)
+        self.assertRaises(AtlassianError, issue.update, fields=fields)
 
     @not_on_custom_jira_instance
     def test_update_with_notify_false(self):
@@ -967,7 +967,7 @@ class IssueTests(unittest.TestCase):
                                        issuetype=self.test_manager.CI_JIRA_ISSUE)
         key = issue.key
         issue.delete()
-        self.assertRaises(JIRAError, self.jira.issue, key)
+        self.assertRaises(AtlassianError, self.jira.issue, key)
 
     @not_on_custom_jira_instance
     def test_createmeta(self):
@@ -1021,7 +1021,7 @@ class IssueTests(unittest.TestCase):
                          self.test_manager.CI_JIRA_ADMIN)
 
     def test_assign_to_bad_issue_raises(self):
-        self.assertRaises(JIRAError, self.jira.assign_issue, 'NOPE-1',
+        self.assertRaises(AtlassianError, self.jira.assign_issue, 'NOPE-1',
                           'notauser')
 
     def test_comments(self):
@@ -1080,43 +1080,43 @@ class IssueTests(unittest.TestCase):
 
     # Nothing from remote link works
     #    def test_remote_links(self):
-    #        self.jira.add_remote_link ('ZTRAVISDEB-3', globalId='python-test:story.of.horse.riding',
-    #        links = self.jira.remote_links('QA-44')
+    #        self.atlassian.add_remote_link ('ZTRAVISDEB-3', globalId='python-test:story.of.horse.riding',
+    #        links = self.atlassian.remote_links('QA-44')
     #        self.assertEqual(len(links), 1)
-    #        links = self.jira.remote_links('BULK-1')
+    #        links = self.atlassian.remote_links('BULK-1')
     #        self.assertEqual(len(links), 0)
     #
     #    @unittest.skip("temporary disabled")
     #    def test_remote_links_with_issue_obj(self):
-    #        issue = self.jira.issue('QA-44')
-    #        links = self.jira.remote_links(issue)
+    #        issue = self.atlassian.issue('QA-44')
+    #        links = self.atlassian.remote_links(issue)
     #        self.assertEqual(len(links), 1)
-    #        issue = self.jira.issue('BULK-1')
-    #        links = self.jira.remote_links(issue)
+    #        issue = self.atlassian.issue('BULK-1')
+    #        links = self.atlassian.remote_links(issue)
     #        self.assertEqual(len(links), 0)
     #
     #    @unittest.skip("temporary disabled")
     #    def test_remote_link(self):
-    #        link = self.jira.remote_link('QA-44', '10000')
+    #        link = self.atlassian.remote_link('QA-44', '10000')
     #        self.assertEqual(link.id, 10000)
     #        self.assertTrue(hasattr(link, 'globalId'))
     #        self.assertTrue(hasattr(link, 'relationship'))
     #
     #    @unittest.skip("temporary disabled")
     #    def test_remote_link_with_issue_obj(self):
-    #        issue = self.jira.issue('QA-44')
-    #        link = self.jira.remote_link(issue, '10000')
+    #        issue = self.atlassian.issue('QA-44')
+    #        link = self.atlassian.remote_link(issue, '10000')
     #        self.assertEqual(link.id, 10000)
     #        self.assertTrue(hasattr(link, 'globalId'))
     #        self.assertTrue(hasattr(link, 'relationship'))
     #
     #    @unittest.skip("temporary disabled")
     #    def test_add_remote_link(self):
-    #        link = self.jira.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
+    #        link = self.atlassian.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
     #                                         object={'url': 'http://google.com', 'title': 'googlicious!'},
     #                                         application={'name': 'far too silly', 'type': 'sketch'}, relationship='mousebending')
     # creation response doesn't include full remote link info, so we fetch it again using the new internal ID
-    #        link = self.jira.remote_link('BULK-3', link.id)
+    #        link = self.atlassian.remote_link('BULK-3', link.id)
     #        self.assertEqual(link.application.name, 'far too silly')
     #        self.assertEqual(link.application.type, 'sketch')
     #        self.assertEqual(link.object.url, 'http://google.com')
@@ -1126,12 +1126,12 @@ class IssueTests(unittest.TestCase):
     #
     #    @unittest.skip("temporary disabled")
     #    def test_add_remote_link_with_issue_obj(self):
-    #        issue = self.jira.issue('BULK-3')
-    #        link = self.jira.add_remote_link(issue, globalId='python-test:story.of.horse.riding',
+    #        issue = self.atlassian.issue('BULK-3')
+    #        link = self.atlassian.add_remote_link(issue, globalId='python-test:story.of.horse.riding',
     #                                         object={'url': 'http://google.com', 'title': 'googlicious!'},
     #                                         application={'name': 'far too silly', 'type': 'sketch'}, relationship='mousebending')
     # creation response doesn't include full remote link info, so we fetch it again using the new internal ID
-    #        link = self.jira.remote_link(issue, link.id)
+    #        link = self.atlassian.remote_link(issue, link.id)
     #        self.assertEqual(link.application.name, 'far too silly')
     #        self.assertEqual(link.application.type, 'sketch')
     #        self.assertEqual(link.object.url, 'http://google.com')
@@ -1141,11 +1141,11 @@ class IssueTests(unittest.TestCase):
     #
     #    @unittest.skip("temporary disabled")
     #    def test_update_remote_link(self):
-    #        link = self.jira.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
+    #        link = self.atlassian.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
     #                                         object={'url': 'http://google.com', 'title': 'googlicious!'},
     #                                         application={'name': 'far too silly', 'type': 'sketch'}, relationship='mousebending')
     # creation response doesn't include full remote link info, so we fetch it again using the new internal ID
-    #        link = self.jira.remote_link('BULK-3', link.id)
+    #        link = self.atlassian.remote_link('BULK-3', link.id)
     #        link.update(object={'url': 'http://yahoo.com', 'title': 'yahooery'}, globalId='python-test:updated.id',
     #                    relationship='cheesing')
     #        self.assertEqual(link.globalId, 'python-test:updated.id')
@@ -1156,12 +1156,12 @@ class IssueTests(unittest.TestCase):
     #
     #    @unittest.skip("temporary disabled")
     #    def test_delete_remove_link(self):
-    #        link = self.jira.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
+    #        link = self.atlassian.add_remote_link('BULK-3', globalId='python-test:story.of.horse.riding',
     #                                         object={'url': 'http://google.com', 'title': 'googlicious!'},
     #                                         application={'name': 'far too silly', 'type': 'sketch'}, relationship='mousebending')
     #        _id = link.id
     #        link.delete()
-    #        self.assertRaises(JIRAError, self.jira.remote_link, 'BULK-3', _id)
+    #        self.assertRaises(JIRAError, self.atlassian.remote_link, 'BULK-3', _id)
 
     def test_transitioning(self):
         # we check with both issue-as-string or issue-as-object
@@ -1184,8 +1184,8 @@ class IssueTests(unittest.TestCase):
 
         # Testing of transition with field assignment is disabled now because default workflows do not have it.
 
-        # self.jira.transition_issue(issue, transitions[0]['id'], assignee={'name': self.test_manager.CI_JIRA_ADMIN})
-        # issue = self.jira.issue(issue.key)
+        # self.atlassian.transition_issue(issue, transitions[0]['id'], assignee={'name': self.test_manager.CI_JIRA_ADMIN})
+        # issue = self.atlassian.issue(issue.key)
         # self.assertEqual(issue.fields.assignee.name, self.test_manager.CI_JIRA_ADMIN)
         #
         # fields = {
@@ -1193,12 +1193,12 @@ class IssueTests(unittest.TestCase):
         #         'name': self.test_manager.CI_JIRA_USER
         #     }
         # }
-        # transitions = self.jira.transitions(issue.key)
+        # transitions = self.atlassian.transitions(issue.key)
         # self.assertTrue(transitions)  # any issue should have at least one transition available to it
         # transition_id = transitions[0]['id']
         #
-        # self.jira.transition_issue(issue.key, transition_id, fields=fields)
-        # issue = self.jira.issue(issue.key)
+        # self.atlassian.transition_issue(issue.key, transition_id, fields=fields)
+        # issue = self.atlassian.issue(issue.key)
         # self.assertEqual(issue.fields.assignee.name, self.test_manager.CI_JIRA_USER)
         # self.assertEqual(issue.fields.status.id, transition_id)
 
@@ -1274,16 +1274,16 @@ class IssueTests(unittest.TestCase):
         # Too hard to serialise the sprint object. Performing simple regex match instead.
         assert re.search('\[id=' + str(s.id) + ',', serialised_sprint)
 
-        # self.jira.add_issues_to_sprint(s.id, self.issue_2)
+        # self.atlassian.add_issues_to_sprint(s.id, self.issue_2)
 
-        # self.jira.rank(self.issue_2, self.issue_1)
+        # self.atlassian.rank(self.issue_2, self.issue_1)
 
         sleep(2)  # avoid https://travis-ci.org/pycontribs/jira/jobs/176561534#L516
         s.delete()
 
         sleep(2)
         b.delete()
-        # self.jira.delete_board(b.id)
+        # self.atlassian.delete_board(b.id)
 
     def test_worklogs(self):
         worklog = self.jira.add_worklog(self.issue_1, '2h')
@@ -1440,49 +1440,49 @@ class ProjectTests(unittest.TestCase):
 
     # I have no idea what avatars['custom'] is and I get different results every time
     #    def test_project_avatars(self):
-    #        avatars = self.jira.project_avatars(self.project_b)
+    #        avatars = self.atlassian.project_avatars(self.project_b)
     #        self.assertEqual(len(avatars['custom']), 3)
     #        self.assertEqual(len(avatars['system']), 16)
     #
     #    def test_project_avatars_with_project_obj(self):
-    #        project = self.jira.project(self.project_b)
-    #        avatars = self.jira.project_avatars(project)
+    #        project = self.atlassian.project(self.project_b)
+    #        avatars = self.atlassian.project_avatars(project)
     #        self.assertEqual(len(avatars['custom']), 3)
     #        self.assertEqual(len(avatars['system']), 16)
 
     #    def test_create_project_avatar(self):
     # Tests the end-to-end project avatar creation process: upload as temporary, confirm after cropping,
     # and selection.
-    #        project = self.jira.project(self.project_b)
+    #        project = self.atlassian.project(self.project_b)
     #        size = os.path.getsize(TEST_ICON_PATH)
     #        filename = os.path.basename(TEST_ICON_PATH)
     #        with open(TEST_ICON_PATH, "rb") as icon:
-    #            props = self.jira.create_temp_project_avatar(project, filename, size, icon.read())
+    #            props = self.atlassian.create_temp_project_avatar(project, filename, size, icon.read())
     #        self.assertIn('cropperOffsetX', props)
     #        self.assertIn('cropperOffsetY', props)
     #        self.assertIn('cropperWidth', props)
     #        self.assertTrue(props['needsCropping'])
     #
     #        props['needsCropping'] = False
-    #        avatar_props = self.jira.confirm_project_avatar(project, props)
+    #        avatar_props = self.atlassian.confirm_project_avatar(project, props)
     #        self.assertIn('id', avatar_props)
     #
-    #        self.jira.set_project_avatar(self.project_b, avatar_props['id'])
+    #        self.atlassian.set_project_avatar(self.project_b, avatar_props['id'])
     #
     #    def test_delete_project_avatar(self):
     #        size = os.path.getsize(TEST_ICON_PATH)
     #        filename = os.path.basename(TEST_ICON_PATH)
     #        with open(TEST_ICON_PATH, "rb") as icon:
-    #            props = self.jira.create_temp_project_avatar(self.project_b, filename, size, icon.read(), auto_confirm=True)
-    #        self.jira.delete_project_avatar(self.project_b, props['id'])
+    #            props = self.atlassian.create_temp_project_avatar(self.project_b, filename, size, icon.read(), auto_confirm=True)
+    #        self.atlassian.delete_project_avatar(self.project_b, props['id'])
     #
     #    def test_delete_project_avatar_with_project_obj(self):
-    #        project = self.jira.project(self.project_b)
+    #        project = self.atlassian.project(self.project_b)
     #        size = os.path.getsize(TEST_ICON_PATH)
     #        filename = os.path.basename(TEST_ICON_PATH)
     #        with open(TEST_ICON_PATH, "rb") as icon:
-    #            props = self.jira.create_temp_project_avatar(project, filename, size, icon.read(), auto_confirm=True)
-    #        self.jira.delete_project_avatar(project, props['id'])
+    #            props = self.atlassian.create_temp_project_avatar(project, filename, size, icon.read(), auto_confirm=True)
+    #        self.atlassian.delete_project_avatar(project, props['id'])
 
     # @pytest.mark.xfail(reason="Jira may return 500")
     # def test_set_project_avatar(self):
@@ -1493,13 +1493,13 @@ class ProjectTests(unittest.TestCase):
     #         else:
     #             raise Exception
     #
-    #     self.jira.set_project_avatar(self.project_b, '10001')
-    #     avatars = self.jira.project_avatars(self.project_b)
+    #     self.atlassian.set_project_avatar(self.project_b, '10001')
+    #     avatars = self.atlassian.project_avatars(self.project_b)
     #     self.assertEqual(find_selected_avatar(avatars)['id'], '10001')
     #
-    #     project = self.jira.project(self.project_b)
-    #     self.jira.set_project_avatar(project, '10208')
-    #     avatars = self.jira.project_avatars(project)
+    #     project = self.atlassian.project(self.project_b)
+    #     self.atlassian.set_project_avatar(project, '10208')
+    #     avatars = self.atlassian.project_avatars(project)
     #     self.assertEqual(find_selected_avatar(avatars)['id'], '10208')
 
     def test_project_components(self):
@@ -1559,7 +1559,7 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(role.name, dev.name)
         user = self.test_manager.jira_admin
         self.assertNotIn(user, role.actors)
-        role.update(users=user, groups=['jira-developers', 'jira-users'])
+        role.update(users=user, groups=['atlassian-developers', 'atlassian-users'])
         role = self.jira.project_role(self.project_b, dev.id)
         self.assertIn(user, role.actors)
 
@@ -1625,7 +1625,7 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(issues[0].key, self.issue)
 
 
-@unittest.skip("Skipped due to https://jira.atlassian.com/browse/JRA-59619")
+@unittest.skip("Skipped due to https://atlassian.atlassian.com/browse/JRA-59619")
 @flaky
 class SecurityLevelTests(unittest.TestCase):
 
@@ -1898,7 +1898,7 @@ class VersionTests(unittest.TestCase):
                                            releaseDate='2015-03-11',
                                            description='not long for this world')
         version.delete()
-        self.assertRaises(JIRAError, self.jira.version, version.id)
+        self.assertRaises(AtlassianError, self.jira.version, version.id)
 
     # def test_version_expandos(self):
     #     pass
@@ -1914,10 +1914,10 @@ class OtherTests(unittest.TestCase):
                  validate=True,
                  logging=False)
         except Exception as e:
-            self.assertIsInstance(e, JIRAError)
-            # 20161010: jira cloud returns 500
+            self.assertIsInstance(e, AtlassianError)
+            # 20161010: atlassian cloud returns 500
             assert e.status_code in (401, 500)
-            str(JIRAError)  # to see that this does not raise an exception
+            str(AtlassianError)  # to see that this does not raise an exception
             return
         assert False
 
@@ -1934,7 +1934,7 @@ class SessionTests(unittest.TestCase):
 
     def test_session_with_no_logged_in_user_raises(self):
         anon_jira = JIRA('https://support.atlassian.com', logging=False)
-        self.assertRaises(JIRAError, anon_jira.session)
+        self.assertRaises(AtlassianError, anon_jira.session)
 
     # @pytest.mark.skipif(platform.python_version() < '3', reason='Does not work with Python 2')
     # @not_on_custom_jira_instance  # takes way too long
@@ -1942,7 +1942,7 @@ class SessionTests(unittest.TestCase):
         try:
             JIRA('https://127.0.0.1:1', logging=False, max_retries=0)
         except Exception as e:
-            self.assertIn(type(e), (JIRAError, requests.exceptions.ConnectionError, AttributeError), e)
+            self.assertIn(type(e), (AtlassianError, requests.exceptions.ConnectionError, AttributeError), e)
             return
         self.assertTrue(False, "Instantiation of invalid JIRA instance succeeded.")
 
@@ -1975,7 +1975,7 @@ class UserAdministrationTests(unittest.TestCase):
 
         try:
             self.jira.delete_user(self.test_username)
-        except JIRAError:
+        except AtlassianError:
             # we ignore if it fails to delete from start because we don't know if it already existed
             pass
 
@@ -1987,7 +1987,7 @@ class UserAdministrationTests(unittest.TestCase):
             # Make sure user exists before attempting test to delete.
             self.jira.add_user(
                 self.test_username, self.test_email, password=self.test_password)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         result = self.jira.delete_user(self.test_username)
@@ -2008,7 +2008,7 @@ class UserAdministrationTests(unittest.TestCase):
     def test_add_group(self):
         try:
             self.jira.remove_group(self.test_groupname)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         sleep(2)  # avoid 500 errors like https://travis-ci.org/pycontribs/jira/jobs/176544578#L552
@@ -2024,7 +2024,7 @@ class UserAdministrationTests(unittest.TestCase):
         try:
             self.jira.add_group(self.test_groupname)
             sleep(1)  # avoid 400: https://travis-ci.org/pycontribs/jira/jobs/176539521#L395
-        except JIRAError:
+        except AtlassianError:
             pass
 
         result = self.jira.remove_group(self.test_groupname)
@@ -2041,7 +2041,7 @@ class UserAdministrationTests(unittest.TestCase):
             x), 0, 'Found group with name when it should have been deleted. Test Fails.')
 
     @not_on_custom_jira_instance
-    @pytest.mark.xfail(reason="query may return empty list: https://travis-ci.org/pycontribs/jira/jobs/191274505#L520")
+    @pytest.mark.xfail(reason="query may return empty list: https://travis-ci.org/pycontribs/atlassian/jobs/191274505#L520")
     def test_add_user_to_group(self):
         try:
             self.jira.add_user(
@@ -2050,7 +2050,7 @@ class UserAdministrationTests(unittest.TestCase):
             # Just in case user is already there.
             self.jira.remove_user_from_group(
                 self.test_username, self.test_groupname)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         result = self.jira.add_user_to_group(
@@ -2070,18 +2070,18 @@ class UserAdministrationTests(unittest.TestCase):
         try:
             self.jira.add_user(
                 self.test_username, self.test_email, password=self.test_password)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         try:
             self.jira.add_group(self.test_groupname)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         try:
             self.jira.add_user_to_group(
                 self.test_username, self.test_groupname)
-        except JIRAError:
+        except AtlassianError:
             pass
 
         result = self.jira.remove_user_from_group(
@@ -2116,7 +2116,7 @@ class JiraServiceDeskTests(unittest.TestCase):
 
         try:
             self.jira.create_project('TESTSD', template_name='IT Service Desk')
-        except JIRAError:
+        except AtlassianError:
             pass
         service_desk = self.jira.service_desks()[0]
         request_type = self.jira.request_types(service_desk)[0]
@@ -2139,7 +2139,7 @@ if __name__ == '__main__':
     # when running tests we expect various errors and we don't want to display them by default
     logging.getLogger("requests").setLevel(logging.FATAL)
     logging.getLogger("urllib3").setLevel(logging.FATAL)
-    logging.getLogger("jira").setLevel(logging.FATAL)
+    logging.getLogger("atlassian").setLevel(logging.FATAL)
 
     # j = JIRA("https://issues.citrite.net")
     # print(j.session())

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This module allows people to keep their jira server credentials outside their script, in a configuration file that is not saved in the source control.
+This module allows people to keep their atlassian server credentials outside their script, in a configuration file that is not saved in the source control.
 
 Also, this simplifies the scripts by not having to write the same initialization code for each script.
 
@@ -14,7 +14,7 @@ try:
 except ImportError:
     from six.moves import configparser
 
-from jira.client import JIRA
+from atlassian.jira_client import JIRA
 
 
 def get_jira(profile=None, url="http://localhost:2990", username="admin", password="admin", appid=None, autofix=False, verify=True):
@@ -30,16 +30,16 @@ def get_jira(profile=None, url="http://localhost:2990", username="admin", passwo
 
     Usage:
 
-        >>> from jira.config import get_jira
+        >>> from atlassian.config import get_jira
         >>>
-        >>> jira = get_jira(profile='jira')
+        >>> atlassian = get_jira(profile='atlassian')
 
     Also create a `config.ini` like this and put it in current directory, user home directory or PYTHONPATH.
 
     .. code-block:: none
 
-        [jira]
-        url=https://jira.atlassian.com
+        [atlassian]
+        url=https://atlassian.atlassian.com
         # only the `url` is mandatory
         user=...
         pass=...
@@ -70,7 +70,7 @@ def get_jira(profile=None, url="http://localhost:2990", username="admin", passwo
         if config_file:
             config.read(config_file)
             try:
-                profile = config.get('general', 'default-jira-profile')
+                profile = config.get('general', 'default-atlassian-profile')
             except configparser.NoOptionError:
                 pass
 
@@ -95,4 +95,4 @@ def get_jira(profile=None, url="http://localhost:2990", username="admin", passwo
     options['verify'] = verify
 
     return JIRA(options=options, basic_auth=(username, password))
-    # self.jira.config.debug = debug
+    # self.atlassian.config.debug = debug

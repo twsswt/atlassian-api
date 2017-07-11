@@ -1,14 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-from __future__ import print_function
-
-"""
-This module implements a friendly (well, friendlier) interface between the raw JSON
-responses from JIRA and the Resource/dict abstractions provided by this library. Users
-will construct a JIRA object as described below. Full API documentation can be found
-at: https://jira-python.readthedocs.org/en/latest/
-"""
 
 from functools import wraps
 
@@ -29,59 +18,55 @@ except ImportError:
 
         def emit(self, record):
             pass
-import calendar
-import datetime
-import hashlib
+
 from numbers import Number
-import requests
 import sys
 import time
 import warnings
 
 from requests.utils import get_netrc_auth
 from six import iteritems
-from six.moves.urllib.parse import urlparse
+
+from atlassian.client import Atlassian, ResultList, _get_template_list, _field_worker
 
 # GreenHopper specific resources
-from jira.exceptions import JIRAError
-from jira.resilientsession import raise_on_error
-from jira.resilientsession import ResilientSession
-# JIRA specific resources
-from jira.resources import Attachment
-from jira.resources import Board
-from jira.resources import Comment
-from jira.resources import Component
-from jira.resources import Customer
-from jira.resources import CustomFieldOption
-from jira.resources import Dashboard
-from jira.resources import Filter
-from jira.resources import GreenHopperResource
-from jira.resources import Issue
-from jira.resources import IssueLink
-from jira.resources import IssueLinkType
-from jira.resources import IssueType
-from jira.resources import Priority
-from jira.resources import Project
-from jira.resources import RemoteLink
-from jira.resources import RequestType
-from jira.resources import Resolution
-from jira.resources import Resource
-from jira.resources import Role
-from jira.resources import SecurityLevel
-from jira.resources import ServiceDesk
-from jira.resources import Sprint
-from jira.resources import Status
-from jira.resources import User
-from jira.resources import Version
-from jira.resources import Votes
-from jira.resources import Watchers
-from jira.resources import Worklog
+from atlassian.exceptions import AtlassianError
+from atlassian.resilientsession import raise_on_error
 
-from jira import __version__
-from jira.utils import CaseInsensitiveDict
-from jira.utils import json_loads
-from jira.utils import threaded_requests
-from pkg_resources import parse_version
+# JIRA specific resources
+from atlassian.resources import Attachment
+from atlassian.resources import Board
+from atlassian.resources import Comment
+from atlassian.resources import Component
+from atlassian.resources import Customer
+from atlassian.resources import CustomFieldOption
+from atlassian.resources import Dashboard
+from atlassian.resources import Filter
+from atlassian.resources import GreenHopperResource
+from atlassian.resources import Issue
+from atlassian.resources import IssueLink
+from atlassian.resources import IssueLinkType
+from atlassian.resources import IssueType
+from atlassian.resources import Priority
+from atlassian.resources import Project
+from atlassian.resources import RemoteLink
+from atlassian.resources import RequestType
+from atlassian.resources import Resolution
+from atlassian.resources import Resource
+from atlassian.resources import Role
+from atlassian.resources import SecurityLevel
+from atlassian.resources import ServiceDesk
+from atlassian.resources import Sprint
+from atlassian.resources import Status
+from atlassian.resources import User
+from atlassian.resources import Version
+from atlassian.resources import Votes
+from atlassian.resources import Watchers
+from atlassian.resources import Worklog
+
+from atlassian.utils import CaseInsensitiveDict
+from atlassian.utils import json_loads
+from atlassian.utils import threaded_requests
 
 try:
     from collections import OrderedDict
@@ -109,16 +94,6 @@ try:
 except ImportError:
     pass
 
-# warnings.simplefilter('default')
-
-# encoding = sys.getdefaultencoding()
-# if encoding != 'UTF8':
-#    warnings.warning("Python default encoding is '%s' instead of 'UTF8' " \
-#    "which means that there is a big change of having problems. " \
-#    "Possible workaround http://stackoverflow.com/a/17628350/99834" % encoding)
-
-logging.getLogger('jira').addHandler(NullHandler())
-
 
 def translate_resource_args(func):
     """Decorator that converts Issue and Project resources to their keys when used as arguments."""
@@ -136,53 +111,7 @@ def translate_resource_args(func):
     return wrapper
 
 
-def _get_template_list(data):
-    template_list = []
-    if 'projectTemplates' in data:
-        template_list = data['projectTemplates']
-    elif 'projectTemplatesGroupedByType' in data:
-        for group in data['projectTemplatesGroupedByType']:
-            template_list.extend(group['projectTemplates'])
-    return template_list
-
-
-def _field_worker(fields=None, **fieldargs):
-    if fields is not None:
-        return {'fields': fields}
-    return {'fields': fieldargs}
-
-
-class ResultList(list):
-
-    def __init__(self, iterable=None, _startAt=None, _maxResults=None, _total=None, _isLast=None):
-        if iterable is not None:
-            list.__init__(self, iterable)
-        else:
-            list.__init__(self)
-
-        self.startAt = _startAt
-        self.maxResults = _maxResults
-        # Optional parameters:
-        self.isLast = _isLast
-        self.total = _total
-
-
-class QshGenerator(object):
-
-    def __init__(self, context_path):
-        self.context_path = context_path
-
-    def __call__(self, req):
-        parse_result = urlparse(req.url)
-
-        path = parse_result.path[len(self.context_path):] if len(self.context_path) > 1 else parse_result.path
-        query = '&'.join(sorted(parse_result.query.split("&")))
-        qsh = '%(method)s&%(path)s&%(query)s' % {'method': req.method.upper(), 'path': path, 'query': query}
-
-        return hashlib.sha256(qsh).hexdigest()
-
-
-class JIRA(object):
+class JIRA(Atlassian):
     """User interface to JIRA.
 
     Clients interact with JIRA by constructing an instance of this object and calling its methods. For addressable
@@ -195,34 +124,17 @@ class JIRA(object):
 
     DEFAULT_OPTIONS = {
         "server": "http://localhost:2990/jira",
-        "context_path": "/",
-        "rest_path": "api",
         "rest_api_version": "2",
         "agile_rest_path": GreenHopperResource.GREENHOPPER_REST_PATH,
         "agile_rest_api_version": "1.0",
-        "verify": True,
-        "resilient": True,
-        "async": False,
-        "client_cert": None,
-        "check_update": False,
-        "headers": {
-            'Cache-Control': 'no-cache',
-            # 'Accept': 'application/json;charset=UTF-8',  # default for REST
-            'Content-Type': 'application/json',  # ;charset=UTF-8',
-            # 'Accept': 'application/json',  # default for REST
-            # 'Pragma': 'no-cache',
-            # 'Expires': 'Thu, 01 Jan 1970 00:00:00 GMT'
-            'X-Atlassian-Token': 'no-check'}}
+    }
 
     checked_version = False
 
-    # TODO(ssbarnea): remove these two variables and use the ones defined in resources
-    JIRA_BASE_URL = Resource.JIRA_BASE_URL
-    AGILE_BASE_URL = GreenHopperResource.AGILE_BASE_URL
+    def __init__(self,
+                 server=None, options=None, basic_auth=None, oauth=None, jwt=None, kerberos=False,
+                 validate=False, get_server_info=True, async=False, max_retries=3, proxies=None, timeout=None):
 
-    def __init__(self, server=None, options=None, basic_auth=None, oauth=None, jwt=None, kerberos=False,
-                 validate=False, get_server_info=True, async=False, logging=True, max_retries=3, proxies=None,
-                 timeout=None):
         """Construct a JIRA client instance.
 
         Without any arguments, this client will connect anonymously to the JIRA instance
@@ -272,71 +184,15 @@ class JIRA(object):
         """
         # force a copy of the tuple to be used in __del__() because
         # sys.version_info could have already been deleted in __del__()
-        self.sys_version_info = tuple([i for i in sys.version_info])
 
-        if options is None:
-            options = {}
-            if server and hasattr(server, 'keys'):
-                warnings.warn(
-                    "Old API usage, use JIRA(url) or JIRA(options={'server': url}, when using dictionary always use named parameters.",
-                    DeprecationWarning)
-                options = server
-                server = None
+        _options = copy.copy(JIRA.DEFAULT_OPTIONS)
+        _options.update(options if type(options) is dict else {})
 
-        if server:
-            options['server'] = server
-        if async:
-            options['async'] = async
+        super().__init__(Resource.JIRA_BASE_URL, server, _options, basic_auth, oauth, jwt, kerberos, validate, async,
+                         max_retries, proxies, timeout)
 
-        self.logging = logging
+        self.base_agile_url_pattern = GreenHopperResource.GREENHOPPER_REST_PATH
 
-        self._options = copy.copy(JIRA.DEFAULT_OPTIONS)
-
-        self._options.update(options)
-
-        self._rank = None
-
-        # Rip off trailing slash since all urls depend on that
-        if self._options['server'].endswith('/'):
-            self._options['server'] = self._options['server'][:-1]
-
-        context_path = urlparse(self._options['server']).path
-        if len(context_path) > 0:
-            self._options['context_path'] = context_path
-
-        self._try_magic()
-
-        if oauth:
-            self._create_oauth_session(oauth, timeout)
-        elif basic_auth:
-            self._create_http_basic_session(*basic_auth, timeout=timeout)
-            self._session.headers.update(self._options['headers'])
-        elif jwt:
-            self._create_jwt_session(jwt, timeout)
-        elif kerberos:
-            self._create_kerberos_session(timeout)
-        else:
-            verify = self._options['verify']
-            self._session = ResilientSession(timeout=timeout)
-            self._session.verify = verify
-        self._session.headers.update(self._options['headers'])
-
-        self._session.max_retries = max_retries
-
-        if proxies:
-            self._session.proxies = proxies
-
-        if validate:
-            # This will raise an Exception if you are not allowed to login.
-            # It's better to fail faster than later.
-            user = self.session()
-            if user.raw is None:
-                auth_method = (
-                    oauth or basic_auth or jwt or kerberos or "anonymous"
-                )
-                raise JIRAError("Can not log in with %s" % str(auth_method))
-
-        self.deploymentType = None
         if get_server_info:
             # We need version in order to know what API calls are available or not
             si = self.server_info()
@@ -349,131 +205,11 @@ class JIRA(object):
         else:
             self._version = (0, 0, 0)
 
-        if self._options['check_update'] and not JIRA.checked_version:
-            self._check_update_()
-            JIRA.checked_version = True
-
         self._fields = {}
         for f in self.fields():
             if 'clauseNames' in f:
                 for name in f['clauseNames']:
                     self._fields[name] = f['id']
-
-    def _check_update_(self):
-        """Check if the current version of the library is outdated."""
-        try:
-            data = requests.get("https://pypi.python.org/pypi/jira/json", timeout=2.001).json()
-
-            released_version = data['info']['version']
-            if parse_version(released_version) > parse_version(__version__):
-                warnings.warn(
-                    "You are running an outdated version of JIRA Python %s. Current version is %s. Do not file any bugs against older versions." % (
-                        __version__, released_version))
-        except requests.RequestException:
-            pass
-        except Exception as e:
-            logging.warning(e)
-
-    def __del__(self):
-        """Destructor for JIRA instance."""
-        session = getattr(self, "_session", None)
-        if session is not None:
-            if self.sys_version_info < (3, 4, 0):  # workaround for https://github.com/kennethreitz/requests/issues/2303
-                try:
-                    session.close()
-                except TypeError:
-                    # TypeError: "'NoneType' object is not callable"
-                    # Could still happen here because other references are also
-                    # in the process to be torn down, see warning section in
-                    # https://docs.python.org/2/reference/datamodel.html#object.__del__
-                    pass
-
-    def _check_for_html_error(self, content):
-        # JIRA has the bad habbit of returning errors in pages with 200 and
-        # embedding the error in a huge webpage.
-        if '<!-- SecurityTokenMissing -->' in content:
-            logging.warning("Got SecurityTokenMissing")
-            raise JIRAError("SecurityTokenMissing: %s" % content)
-            return False
-        return True
-
-    def _fetch_pages(self, item_type, items_key, request_path, startAt=0, maxResults=50, params=None, base=JIRA_BASE_URL):
-        """Fetch pages.
-
-        :param item_type: Type of single item. ResultList of such items will be returned.
-        :param items_key: Path to the items in JSON returned from server.
-                Set it to None, if response is an array, and not a JSON object.
-        :param request_path: path in request URL
-        :param startAt: index of the first record to be fetched
-        :param maxResults: Maximum number of items to return.
-                If maxResults evaluates as False, it will try to get all items in batches.
-        :param params: Params to be used in all requests. Should not contain startAt and maxResults,
-                        as they will be added for each request created from this function.
-        :param base: base URL
-        :return: ResultList
-        """
-        page_params = params.copy() if params else {}
-        if startAt:
-            page_params['startAt'] = startAt
-        if maxResults:
-            page_params['maxResults'] = maxResults
-
-        try:
-            resource = self._get_json(request_path, params=page_params, base=base)
-            next_items_page = [item_type(self._options, self._session, raw_issue_json) for raw_issue_json in
-                               (resource[items_key] if items_key else resource)]
-        except KeyError as e:
-            # improving the error text so we know why it happened
-            raise KeyError(str(e) + " : " + json.dumps(resource))
-
-        items = next_items_page
-
-        if True:  # isinstance(resource, dict):
-
-            if isinstance(resource, dict):
-                total = resource.get('total')
-                # 'isLast' is the optional key added to responses in JIRA Agile 6.7.6. So far not used in basic JIRA API.
-                is_last = resource.get('isLast', True)
-                start_at_from_response = resource.get('startAt', 0)
-                max_results_from_response = resource.get('maxResults', 1)
-            else:
-                # if is a list
-                total = 1
-                is_last = True
-                start_at_from_response = 0
-                max_results_from_response = 1
-
-            # If maxResults evaluates as False, get all items in batches
-            if not maxResults:
-                page_size = max_results_from_response or len(items)
-                page_start = (startAt or start_at_from_response or 0) + page_size
-                while not is_last and (total is None or page_start < total) and len(next_items_page) == page_size:
-                    page_params['startAt'] = page_start
-                    page_params['maxResults'] = page_size
-                    resource = self._get_json(request_path, params=page_params, base=base)
-                    if resource:
-                        try:
-                            next_items_page = [item_type(self._options, self._session, raw_issue_json) for raw_issue_json in
-                                               (resource[items_key] if items_key else resource)]
-                        except KeyError as e:
-                            # improving the error text so we know why it happened
-                            raise KeyError(str(e) + " : " + json.dumps(resource))
-                        items.extend(next_items_page)
-                        page_start += page_size
-                    else:
-                        # if resource is an empty dictionary we assume no-results
-                        break
-
-            return ResultList(items, start_at_from_response, max_results_from_response, total, is_last)
-        else:
-            # it seams that search_users can return a list() containing a single user!
-            return ResultList([item_type(self._options, self._session, resource)], 0, 1, 1, True)
-
-    # Information about this client
-
-    def client_info(self):
-        """Get the server this client is connected to."""
-        return self._options['server']
 
     # Universal resource loading
 
@@ -615,10 +351,10 @@ class JIRA(object):
 
         js = json_loads(r)
         if not js or not isinstance(js, collections.Iterable):
-            raise JIRAError("Unable to parse JSON: %s" % js)
+            raise AtlassianError("Unable to parse JSON: %s" % js)
         attachment = Attachment(self._options, self._session, js[0])
         if attachment.size == 0:
-            raise JIRAError("Added empty attachment via %s method?!: r: %s\nattachment: %s" % (method, r, attachment))
+            raise AtlassianError("Added empty attachment via %s method?!: r: %s\nattachment: %s" % (method, r, attachment))
         return attachment
 
     def delete_attachment(self, id):
@@ -925,7 +661,7 @@ class JIRA(object):
 
         raw_issue_json = json_loads(r)
         if 'key' not in raw_issue_json:
-            raise JIRAError(r.status_code, response=r, url=url, text=json.dumps(data))
+            raise AtlassianError(r.status_code, response=r, url=url, text=json.dumps(data))
         if prefetch:
             return self.issue(raw_issue_json['key'])
         else:
@@ -985,7 +721,7 @@ class JIRA(object):
         try:
             r = self._session.get(url, headers=headers)
             return r.status_code == 200
-        except JIRAError:
+        except AtlassianError:
             return False
 
     def create_customer(self, email, displayName):
@@ -1000,7 +736,7 @@ class JIRA(object):
         raw_customer_json = json_loads(r)
 
         if r.status_code != 201:
-            raise JIRAError(r.status_code, request=r)
+            raise AtlassianError(r.status_code, request=r)
         return Customer(self._options, self._session, raw=raw_customer_json)
 
     def service_desks(self):
@@ -1063,7 +799,7 @@ class JIRA(object):
 
         raw_issue_json = json_loads(r)
         if 'issueKey' not in raw_issue_json:
-            raise JIRAError(r.status_code, request=r)
+            raise AtlassianError(r.status_code, request=r)
         if prefetch:
             return self.issue(raw_issue_json['issueKey'])
         else:
@@ -1224,7 +960,7 @@ class JIRA(object):
         """
         try:
             applicationlinks = self.applicationlinks()
-        except JIRAError as e:
+        except AtlassianError as e:
             applicationlinks = []
             # In many (if not most) configurations, non-admin users are
             # not allowed to list applicationlinks; if we aren't allowed,
@@ -1362,7 +1098,7 @@ class JIRA(object):
             # cannot cast to int, so try to find transitionId by name
             transitionId = self.find_transitionid_by_name(issue, transition)
             if transitionId is None:
-                raise JIRAError("Invalid transition name. %s" % transition)
+                raise AtlassianError("Invalid transition name. %s" % transition)
 
         data = {
             'transition': {
@@ -2249,81 +1985,10 @@ class JIRA(object):
             url = self._options['server'] + '/rest/auth/1/websudo'
             return self._session.delete(url)
 
-    # Utilities
-    def _create_http_basic_session(self, username, password, timeout=None):
-        verify = self._options['verify']
-        self._session = ResilientSession(timeout=timeout)
-        self._session.verify = verify
-        self._session.auth = (username, password)
-        self._session.cert = self._options['client_cert']
-
-    def _create_oauth_session(self, oauth, timeout):
-        verify = self._options['verify']
-
-        from oauthlib.oauth1 import SIGNATURE_RSA
-        from requests_oauthlib import OAuth1
-
-        oauth = OAuth1(
-            oauth['consumer_key'],
-            rsa_key=oauth['key_cert'],
-            signature_method=SIGNATURE_RSA,
-            resource_owner_key=oauth['access_token'],
-            resource_owner_secret=oauth['access_token_secret'])
-        self._session = ResilientSession(timeout)
-        self._session.verify = verify
-        self._session.auth = oauth
-
-    def _create_kerberos_session(self, timeout):
-        verify = self._options['verify']
-
-        from requests_kerberos import HTTPKerberosAuth
-        from requests_kerberos import OPTIONAL
-
-        self._session = ResilientSession(timeout=timeout)
-        self._session.verify = verify
-        self._session.auth = HTTPKerberosAuth(mutual_authentication=OPTIONAL)
-
-    @staticmethod
-    def _timestamp(dt=None):
-        t = datetime.datetime.utcnow()
-        if dt is not None:
-            t += dt
-        return calendar.timegm(t.timetuple())
-
-    def _create_jwt_session(self, jwt, timeout):
-        try:
-            jwt_auth = JWTAuth(jwt['secret'], alg='HS256')
-        except NameError as e:
-            logging.error("JWT authentication requires requests_jwt")
-            raise e
-        jwt_auth.add_field("iat", lambda req: JIRA._timestamp())
-        jwt_auth.add_field("exp", lambda req: JIRA._timestamp(datetime.timedelta(minutes=3)))
-        jwt_auth.add_field("qsh", QshGenerator(self._options['context_path']))
-        for f in jwt['payload'].items():
-            jwt_auth.add_field(f[0], f[1])
-        self._session = ResilientSession(timeout=timeout)
-        self._session.verify = self._options['verify']
-        self._session.auth = jwt_auth
-
     def _set_avatar(self, params, url, avatar):
         data = {
             'id': avatar}
         return self._session.put(url, params=params, data=json.dumps(data))
-
-    def _get_url(self, path, base=JIRA_BASE_URL):
-        options = self._options.copy()
-        options.update({'path': path})
-        return base.format(**options)
-
-    def _get_json(self, path, params=None, base=JIRA_BASE_URL):
-        url = self._get_url(path, base)
-        r = self._session.get(url, params=params)
-        try:
-            r_json = json_loads(r)
-        except ValueError as e:
-            logging.error("%s\n%s" % (e, r.text))
-            raise e
-        return r_json
 
     def _find_for_resource(self, resource_cls, ids, expand=None):
         resource = resource_cls(self._options, self._session)
@@ -2332,27 +1997,8 @@ class JIRA(object):
             params['expand'] = expand
         resource.find(id=ids, params=params)
         if not resource:
-            raise JIRAError("Unable to find resource %s(%s)", resource_cls, ids)
+            raise AtlassianError("Unable to find resource %s(%s)", resource_cls, ids)
         return resource
-
-    def _try_magic(self):
-        try:
-            import magic
-            import weakref
-        except ImportError:
-            self._magic = None
-        else:
-            try:
-                _magic = magic.Magic(flags=magic.MAGIC_MIME_TYPE)
-
-                def cleanup(x):
-                    _magic.close()
-                self._magic_weakref = weakref.ref(self, cleanup)
-                self._magic = _magic
-            except TypeError:
-                self._magic = None
-            except AttributeError:
-                self._magic = None
 
     def _get_mime_type(self, buff):
         if self._magic is not None:
@@ -2627,13 +2273,13 @@ class JIRA(object):
                 try:
                     resp = self._session.get(url, headers=self._options['headers'], stream=True)
                 except Exception:
-                    raise JIRAError()
+                    raise AtlassianError()
                 if not resp.ok:
                     logging.error("Something went wrong with download: %s" % resp.text)
-                    raise JIRAError(resp.text)
+                    raise AtlassianError(resp.text)
                 for block in resp.iter_content(1024):
                     file.write(block)
-        except JIRAError as je:
+        except AtlassianError as je:
             logging.error('Unable to access remote backup file: %s' % je)
         except IOError as ioe:
             logging.error(ioe)
@@ -2689,11 +2335,11 @@ class JIRA(object):
             r = self._session.delete(
                 url, headers={'Content-Type': 'application/json'}
             )
-        except JIRAError as je:
+        except AtlassianError as je:
             if '403' in str(je):
-                raise JIRAError('Not enough permissions to delete project')
+                raise AtlassianError('Not enough permissions to delete project')
             if '404' in str(je):
-                raise JIRAError('Project not found in Jira')
+                raise AtlassianError('Project not found in Jira')
             raise je
 
         if r.status_code == 204:
@@ -2822,7 +2468,7 @@ class JIRA(object):
         payload = json.dumps(x)
         try:
             self._session.post(url, data=payload)
-        except JIRAError as e:
+        except AtlassianError as e:
             err = e.response.json()['errors']
             if 'username' in err and err['username'] == 'A user with that username already exists.' and ignore_existing:
                 return True
@@ -3124,7 +2770,7 @@ class JIRA(object):
             payload = {'issues': issue_keys}
             try:
                 self._session.post(url, data=json.dumps(payload))
-            except JIRAError as e:
+            except AtlassianError as e:
                 if e.status_code == 404:
                     warnings.warn('Status code 404 may mean, that too old JIRA Agile version is installed.'
                                   ' At least version 6.7.10 is required.')
@@ -3188,7 +2834,7 @@ class JIRA(object):
             payload = {'issues': [issue], 'rankBeforeIssue': next_issue, 'rankCustomFieldId': self._rank}
             try:
                 return self._session.put(url, data=json.dumps(payload))
-            except JIRAError as e:
+            except AtlassianError as e:
                 if e.status_code == 404:
                     warnings.warn('Status code 404 may mean, that too old JIRA Agile version is installed.'
                                   ' At least version 6.7.10 is required.')
@@ -3213,7 +2859,7 @@ class JIRA(object):
             payload = {'issues': issue_keys}
             try:
                 self._session.post(url, data=json.dumps(payload))
-            except JIRAError as e:
+            except AtlassianError as e:
                 if e.status_code == 404:
                     warnings.warn('Status code 404 may mean, that too old JIRA Agile version is installed.'
                                   ' At least version 6.7.10 is required.')

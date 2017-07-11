@@ -1,6 +1,6 @@
 # This script shows how to use the client in anonymous mode
 # against jira.atlassian.com.
-from jira.client import GreenHopper
+from atlassian.client import GreenHopper
 
 # By default, the client will connect to a JIRA instance started from the Atlassian Plugin SDK
 # (see https://developer.atlassian.com/display/DOCS/Installing+the+Atlassian+Plugin+SDK for details).

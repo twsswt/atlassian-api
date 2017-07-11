@@ -22,9 +22,9 @@ from six import iteritems
 from six import string_types
 from six import text_type
 
-from jira.utils import CaseInsensitiveDict
-from jira.utils import json_loads
-from jira.utils import threaded_requests
+from atlassian.utils import CaseInsensitiveDict
+from atlassian.utils import json_loads
+from atlassian.utils import threaded_requests
 
 __all__ = (
     'Resource',
@@ -934,3 +934,21 @@ def cls_for_resource(resource_literal):
     else:
         # Generic Resource without specialized update/delete behavior
         return Resource
+
+
+class Content(Resource):
+    """
+    A confluence content page or blogpost.
+    """
+
+    def __init__(self, options, session, raw=None):
+        Resource.__init__(self, 'content/{0}', options, session)
+
+        self.fields = None
+        """ :type : Issue._IssueFields """
+        self.id = None
+        """ :type : int """
+        self.key = None
+        """ :type : str """
+        if raw:
+            self._parse_raw(raw)

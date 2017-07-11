@@ -14,9 +14,9 @@ from requests.exceptions import ConnectionError
 from requests import Session
 import time
 
-from jira.exceptions import JIRAError
+from atlassian.exceptions import AtlassianError
 
-logging.getLogger('jira').addHandler(NullHandler())
+logging.getLogger('atlassian').addHandler(NullHandler())
 
 
 def raise_on_error(r, verb='???', **kwargs):
@@ -24,7 +24,7 @@ def raise_on_error(r, verb='???', **kwargs):
     # headers = kwargs.get('headers', None)
 
     if r is None:
-        raise JIRAError(None, **kwargs)
+        raise AtlassianError(None, **kwargs)
 
     if r.status_code >= 400:
         error = ''
@@ -52,11 +52,11 @@ def raise_on_error(r, verb='???', **kwargs):
                     error = r.text
             except ValueError:
                 error = r.text
-        raise JIRAError(
+        raise AtlassianError(
             r.status_code, error, r.url, request=request, response=r, **kwargs)
     # for debugging weird errors on CI
     if r.status_code not in [200, 201, 202, 204]:
-        raise JIRAError(r.status_code, request=request, response=r, **kwargs)
+        raise AtlassianError(r.status_code, request=request, response=r, **kwargs)
     # testing for the WTH bug exposed on
     # https://answers.atlassian.com/questions/11457054/answers/11975162
     if r.status_code == 200 and len(r.content) == 0 \
@@ -94,7 +94,7 @@ class ResilientSession(Session):
                       'AUTHENTICATED_FAILED' in response.headers['X-Seraph-LoginReason']):
                 return False
             else:
-                msg = "Atlassian's bug https://jira.atlassian.com/browse/JRA-41559"
+                msg = "Atlassian's bug https://atlassian.atlassian.com/browse/JRA-41559"
 
         # Exponential backoff with full jitter.
         delay = min(60, 10 * 2 ** counter) * random.random()

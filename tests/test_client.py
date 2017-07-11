@@ -6,8 +6,8 @@ from tests import get_unique_project_name
 from tests import JiraTestManager
 import time
 
-from jira import Role, Issue, JIRA, JIRAError, Project  # noqa
-import jira.client
+from atlassian import Role, Issue, JIRA, AtlassianError, Project  # noqa
+import atlassian.client
 
 
 @pytest.fixture(scope='module')
@@ -42,7 +42,7 @@ def slug(request, cl_admin):
 
     try:
         proj = cl_admin.project(slug)
-    except JIRAError:
+    except AtlassianError:
         proj = cl_admin.create_project(slug, project_name)
     assert proj
 
@@ -56,7 +56,7 @@ def slug(request, cl_admin):
 def test_delete_project(cl_admin, cl_normal, slug):
     time.sleep(6)  # with <=5s was failing often
 
-    with pytest.raises(JIRAError) as ex:
+    with pytest.raises(AtlassianError) as ex:
         assert cl_normal.delete_project(slug)
 
     assert 'Not enough permissions to delete project' in str(ex.value)
@@ -83,13 +83,13 @@ def test_template_list():
     text = (
     r'{"projectTemplatesGroupedByType": ['
     ' { "projectTemplates": [ { "projectTemplateModuleCompleteKey": '
-        '"com.pyxis.greenhopper.jira:gh-scrum-template", '
+        '"com.pyxis.greenhopper.atlassian:gh-scrum-template", '
         '"name": "Scrum software development"}, '
         '{ "projectTemplateModuleCompleteKey": '
-        '"com.pyxis.greenhopper.jira:gh-kanban-template", '
+        '"com.pyxis.greenhopper.atlassian:gh-kanban-template", '
         '"name": "Kanban software development"}, '
         '{ "projectTemplateModuleCompleteKey": '
-        '"com.pyxis.greenhopper.jira:'
+        '"com.pyxis.greenhopper.atlassian:'
         'basic-software-development-template",'
         ' "name": "Basic software development"} ],'
         ' "applicationInfo": { '
@@ -111,19 +111,19 @@ def test_template_list():
         '"projectTypeDisplayKey": "Business"}, '
         '"projectTemplates": [ { '
         '"projectTemplateModuleCompleteKey": '
-        '"com.atlassian.jira-core-project-templates:jira-core-task-management", '
+        '"com.atlassian.atlassian-core-project-templates:atlassian-core-task-management", '
         '"name": "Task management"}, {'
         ' "projectTemplateModuleCompleteKey": '
-        '"com.atlassian.jira-core-project-templates:jira-core-project-management", '
+        '"com.atlassian.atlassian-core-project-templates:atlassian-core-project-management", '
         '"name": "Project management"}, { '
         '"projectTemplateModuleCompleteKey": '
-        '"com.atlassian.jira-core-project-templates:jira-core-process-management", '
+        '"com.atlassian.atlassian-core-project-templates:atlassian-core-process-management", '
         '"name": "Process management"} ], '
         '"applicationInfo": { "applicationName": "JIRA Core"} }],'
         ' "maxNameLength": 80, "minNameLength": 2, "maxKeyLength": 10 }'
     )  # noqa
     j = json.loads(text)
-    template_list = jira.client._get_template_list(j)
+    template_list = atlassian.client._get_template_list(j)
     assert [t['name'] for t in template_list] == ["Scrum software development", "Kanban software development", "Basic software development",
                                                   "Basic Service Desk", "IT Service Desk", "Task management", "Project management",
                                                   "Process management"]

@@ -2,7 +2,7 @@ import os
 import tempfile
 
 
-class JIRAError(Exception):
+class AtlassianError(Exception):
     """General error raised for all problems in operation of the client."""
 
     log_to_tempfile = True

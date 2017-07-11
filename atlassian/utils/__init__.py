@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import json
 import threading
 
-from jira.resilientsession import raise_on_error
+from atlassian.resilientsession import raise_on_error
 
 
 class CaseInsensitiveDict(dict):

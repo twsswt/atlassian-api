@@ -19,7 +19,7 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('..'))
-from jira import __version__  # noqa
+from atlassian import __version__  # noqa
 
 # -- General configuration -----------------------------------------------------
 
