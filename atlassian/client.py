@@ -261,7 +261,7 @@ class Atlassian(object):
             return False
         return True
 
-    def _fetch_pages(self, item_type, items_key, request_path, startAt=0, maxResults=50, params=None):
+    def _fetch_pages(self, item_type, items_key, request_path, startAt=0, maxResults=10, params=None, paging=False):
         """Fetch pages.
 
         :param item_type: Type of single item. ResultList of such items will be returned.
@@ -278,60 +278,50 @@ class Atlassian(object):
         page_params = params.copy() if params else {}
         if startAt:
             page_params['startAt'] = startAt
+            page_params['start'] = startAt
         if maxResults:
             page_params['maxResults'] = maxResults
+            page_params['limit'] = maxResults
+
+        items, is_more_items = self.get_resource_and_items(request_path, page_params, item_type, items_key)
+
+        if paging:
+            page_size = len(items)
+            page_start = page_size
+            page_params['maxResults'] = page_size
+            page_params['limit'] = page_size
+            while is_more_items:
+                page_params['startAt'] = page_start
+                page_params['start'] = page_start
+
+                next_items, is_more_items = self.get_resource_and_items(request_path, page_params, item_type, items_key)
+
+                if items:
+                    items.extend(next_items)
+                    page_start += page_size
+
+        start_at_from_response = 0
+        max_results_from_response = 1
+        total = 1
+
+        return ResultList(items, start_at_from_response, max_results_from_response, total, not is_more_items)
+
+    def get_resource_and_items(self, request_path, page_params, item_type, items_key):
 
         resource = self._get_json(request_path, params=page_params)
-        try:
-            next_items_page = [item_type(self._options, self._session, raw_issue_json) for raw_issue_json in
-                               (resource[items_key] if items_key else resource)]
-        except KeyError as e:
-            # improving the error text so we know why it happened
-            raise KeyError(str(e) + " : " + json.dumps(resource))
 
-        items = next_items_page
+        if resource:
+            try:
+                is_more_items = resource.get('isLast', resource['_links'].get('next', False))
+                items = [item_type(self._options, self._session, raw_issue_json)
+                        for raw_issue_json in  (resource[items_key] if items_key else resource)]
 
-        if True:  # isinstance(resource, dict):
+                return items, is_more_items
+            except KeyError as e:
+                # improving the error text so we know why it happened
+                raise KeyError(str(e) + " : " + json.dumps(resource))
 
-            if isinstance(resource, dict):
-                total = resource.get('total')
-                # 'isLast' is the optional key added to responses in JIRA Agile 6.7.6. So far not used in basic JIRA API.
-                is_last = resource.get('isLast', True)
-                start_at_from_response = resource.get('startAt', 0)
-                max_results_from_response = resource.get('maxResults', 1)
-            else:
-                # if is a list
-                total = 1
-                is_last = True
-                start_at_from_response = 0
-                max_results_from_response = 1
-
-            # If maxResults evaluates as False, get all items in batches
-            if not maxResults:
-                page_size = max_results_from_response or len(items)
-                page_start = (startAt or start_at_from_response or 0) + page_size
-                while not is_last and (total is None or page_start < total) and len(next_items_page) == page_size:
-                    page_params['startAt'] = page_start
-                    page_params['maxResults'] = page_size
-                    resource = self._get_json(request_path, params=page_params)
-                    if resource:
-                        try:
-                            next_items_page = [item_type(self._options, self._session, raw_issue_json) for
-                                               raw_issue_json in
-                                               (resource[items_key] if items_key else resource)]
-                        except KeyError as e:
-                            # improving the error text so we know why it happened
-                            raise KeyError(str(e) + " : " + json.dumps(resource))
-                        items.extend(next_items_page)
-                        page_start += page_size
-                    else:
-                        # if resource is an empty dictionary we assume no-results
-                        break
-
-            return ResultList(items, start_at_from_response, max_results_from_response, total, is_last)
-        else:
-            # it seams that search_users can return a list() containing a single user!
-            return ResultList([item_type(self._options, self._session, resource)], 0, 1, 1, True)
+        return None, False
 
     def _get_url(self, path, base_url_pattern=None):
         options = self._options.copy()
