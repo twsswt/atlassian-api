@@ -150,9 +150,9 @@ class Resource(object):
                 if name in self.raw:
                     names.append(name + '=' + repr(self.raw[name]))
         if not names:
-            return '<JIRA %s at %s>' % (self.__class__.__name__,
+            return '<Atlassian %s at %s>' % (self.__class__.__name__,
                                         id(self))
-        return '<JIRA %s: %s>' % (self.__class__.__name__, ', '.join(names))
+        return '<Atlassian %s: %s>' % (self.__class__.__name__, ', '.join(names))
 
     def __getattr__(self, item):
         """Allow access of attributes via names."""
@@ -939,6 +939,24 @@ def cls_for_resource(resource_literal):
 class Content(Resource):
     """
     A confluence content page or blogpost.
+    """
+
+    def __init__(self, options, session, raw=None):
+        Resource.__init__(self, 'content/{0}', options, session)
+
+        self.fields = None
+        """ :type : Issue._IssueFields """
+        self.id = None
+        """ :type : int """
+        self.key = None
+        """ :type : str """
+        if raw:
+            self._parse_raw(raw)
+
+
+class History(Resource):
+    """
+    A confluence content page or blogpost revision history.
     """
 
     def __init__(self, options, session, raw=None):
