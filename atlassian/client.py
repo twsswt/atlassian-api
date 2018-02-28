@@ -306,17 +306,28 @@ class Atlassian(object):
 
         return ResultList(items, start_at_from_response, max_results_from_response, total, not is_more_items)
 
+    @staticmethod
+    def _is_more_items(resource):
+        is_last = resource.get('isLast')
+        if is_last is None:
+            _links = resource.get('_links')
+            if _links is not None:
+                return 'next' in _links
+            else:
+                return False
+        else:
+            return not is_last
+
     def get_resource_and_items(self, request_path, page_params, item_type, items_key):
 
         resource = self._get_json(request_path, params=page_params)
 
         if resource:
             try:
-                is_more_items = resource.get('isLast', resource['_links'].get('next', False))
                 items = [item_type(self._options, self._session, raw_issue_json)
                         for raw_issue_json in  (resource[items_key] if items_key else resource)]
 
-                return items, is_more_items
+                return items, self._is_more_items(resource)
             except KeyError as e:
                 # improving the error text so we know why it happened
                 raise KeyError(str(e) + " : " + json.dumps(resource))
